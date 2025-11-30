@@ -4,57 +4,48 @@ import sys
 # Gerekli klasörleri Python yoluna ekle
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from ai_agents.effort_estimator_agent import estimate_effort_agent
 from utils.input_handler import get_manual_project_data
-
-import time 
+from ai_agents.brief_notes_agent import brief_notes_agent
 
 def main():
-    print("✨ İş Gücü Tahmin Uygulaması Başlatılıyor...")
-
-    # 1. Girdileri Kullanıcıdan Al (Elle Giriş)
-    project_data = get_manual_project_data()
-    print("\n✅ Proje Verileri Hazırlandı:", project_data)
-    time.sleep(1) # Kullanıcıya bilgi vermek için kısa bir duraklama
-
-    # 2. AI Agent'ı Çağır (Tahmini Başlat)
-    print("\n⏳ Yapay Zeka Uzmanından Tahmin İsteniyor...")
+    print("NOT ÖZETİ ÇIKARMA SİSTEMİNE HOŞ GELDİNİZ")
     
-    # LLM'den gelen yanıt (Tahmin Sayısı + Gerekçe Metni)
-    ai_response = estimate_effort_agent(project_data)
-
-    # 3. Yanıtı Ayrıştır ve Göster
-    print("\n--------------------------------------------------")
+    # 1. Kullanıcıdan toplantı notlarını al
+    meeting_notes = get_manual_project_data()
     
-    if ai_response.startswith("API_HATA"):
+    # 2. AI'dan özet üret
+    ai_response = brief_notes_agent(meeting_notes)
+    
+    # 3. AI yanıtını işle
+    if ai_response.startswith("API_HATA") or ai_response.startswith("HATA"):
         print(ai_response)
         return
 
     try:
-        # LLM çıktısının ilk satırının tahmin sayısı olması beklenir.
-        lines = ai_response.split('\n', 1)
-        estimated_effort = int(lines[0].strip())
-        reasoning = lines[1].strip() if len(lines) > 1 else "Gerekçe sağlanamadı."
-        
-        print(f"💰 TOPLAM TAHMİNİ İŞ GÜCÜ (Man-Day): {estimated_effort}")
-        print("--------------------------------------------------")
-        print("GEREKÇE ve ANALİZ:")
-        print(reasoning)
-        print("--------------------------------------------------")
-        
-        # 4. (Opsiyonel) Sonucu Mail Gönderme
-        # if estimated_effort > 150:
-        #     send_email(...)
-            
-    except ValueError:
-        print("❌ HATA: Yapay zeka çıktısı beklenen formatta değil veya bir sayı içermiyor.")
+        # LLM çıktısının beklenen formatta olduğu varsayılır
+        if "**Toplantı Özeti**" in ai_response and "**Gerekçe**" in ai_response:
+            # Özeti ve gerekçeyi ayır
+            parts = ai_response.split("**Gerekçe**", 1)
+            summary = parts[0].strip() if len(parts) > 1 else ai_response
+            reasoning = parts[1].strip() if len(parts) > 1 else "Gerekçe sağlanamadı."
+
+            print("📋 TOPLANTI ÖZETİ:")
+            print("--------------------------------------------------")
+            print(summary)
+            print("--------------------------------------------------")
+            print("GEREKÇE:")
+            print(reasoning)
+            print("--------------------------------------------------")
+        else:
+            raise ValueError("Yapay zeka çıktısı beklenen özet formatında değil.")
+
+    except ValueError as ve:
+        print(f"❌ HATA: {ve}")
         print(f"Ham AI Yanıtı:\n{ai_response}")
         print("--------------------------------------------------")
     except Exception as e:
         print(f"❌ Beklenmedik bir hata oluştu: {e}")
-
-
+        print(f"Ham AI Yanıtı:\n{ai_response}")
+        print("--------------------------------------------------")
 if __name__ == "__main__":
-	# AI Agent'ların doğru çalışması için API anahtarınızın ayarlandığından emin olun.
-	# Buraya bir .env dosyası ve 'GOOGLE_AI_API_KEY' eklemeyi unutmayın.
-	main()
+    main()
