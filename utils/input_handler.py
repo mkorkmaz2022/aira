@@ -17,6 +17,7 @@ def get_manual_project_data() -> str:
             break
 
         if line.strip().upper() == "###SON###":
+            print("Toplantı notları girişi tamamlandı.")
             break
         lines.append(line)
         

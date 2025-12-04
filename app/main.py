@@ -1,51 +1,83 @@
-# app/main.py
 import os
 import sys
-# Gerekli klasörleri Python yoluna ekle
+
+# Proje kök dizinini yola ekle (importlar çalışsın diye)
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from utils.input_handler import get_manual_project_data
 from ai_agents.brief_notes_agent import brief_notes_agent
+# Yeni servisimizi import ediyoruz
+from services.chroma_service import ChromaDBService
 
 def main():
-    print("NOT ÖZETİ ÇIKARMA SİSTEMİNE HOŞ GELDİNİZ")
-    
-    # 1. Kullanıcıdan toplantı notlarını al
-    meeting_notes = get_manual_project_data()
-    
-    # 2. AI'dan özet üret
-    ai_response = brief_notes_agent(meeting_notes)
-    
-    # 3. AI yanıtını işle
-    if ai_response.startswith("API_HATA") or ai_response.startswith("HATA"):
-        print(ai_response)
-        return
+    print("--------------------------------------------------")
+    print("🚀 NOT ÖZETLEME VE VEKTÖR KAYIT SİSTEMİ")
+    print("--------------------------------------------------")
 
-    try:
-        # LLM çıktısının beklenen formatta olduğu varsayılır
-        if "**Toplantı Özeti**" in ai_response and "**Gerekçe**" in ai_response:
-            # Özeti ve gerekçeyi ayır
-            parts = ai_response.split("**Gerekçe**", 1)
-            summary = parts[0].strip() if len(parts) > 1 else ai_response
-            reasoning = parts[1].strip() if len(parts) > 1 else "Gerekçe sağlanamadı."
+    # 1. Chroma Servisini Başlat
+    db_service = ChromaDBService()
 
-            print("📋 TOPLANTI ÖZETİ:")
-            print("--------------------------------------------------")
-            print(summary)
-            print("--------------------------------------------------")
-            print("GEREKÇE:")
-            print(reasoning)
-            print("--------------------------------------------------")
+    while True:
+        print("\nNe yapmak istersiniz?")
+        print("1. Yeni Not Ekle ve Özetle")
+        print("2. Eski Notlarda Arama Yap")
+        print("3. Çıkış")
+        choice = input("Seçiminiz (1/2/3): ").strip()
+
+        if choice == "1":
+            # --- MEVCUT AKIŞINIZ ---
+            meeting_notes = get_manual_project_data()
+            if not meeting_notes:
+                continue
+
+            print("⏳ Yapay Zeka özeti hazırlıyor...")
+            ai_response = brief_notes_agent(meeting_notes)
+
+            # Hata kontrolü (Mevcut kodunuzdan alındı)
+            if ai_response.startswith("API_HATA") or ai_response.startswith("HATA"):
+                print(f"❌ {ai_response}")
+                continue
+
+            # --- YENİ EKLENEN KISIM: VDB KAYIT ---
+            try:
+                # Yapay zeka çıktısını temiz bir şekilde gösterme
+                print("\n📋 AI ÖZETİ:")
+                print(ai_response)
+                
+                # Kullanıcıya kaydetmek isteyip istemediğini sorabiliriz (Opsiyonel)
+                save_confirm = input("\n💾 Bu özet veritabanına kaydedilsin mi? (E/H): ").lower()
+                if save_confirm == 'e':
+                    # Notu ve özeti Chroma'ya gönderiyoruz
+                    db_service.save_note(
+                        raw_notes=meeting_notes, 
+                        summary=ai_response,
+                        tags="Toplantı"
+                    )
+            except Exception as e:
+                print(f"❌ Veritabanı kayıt hatası: {e}")
+
+        elif choice == "2":
+            # --- YENİ ÖZELLİK: ARAMA ---
+            query = input("🔍 Ne aramak istiyorsunuz? (Örn: 'Veritabanı kararları'): ")
+            results = db_service.query_notes(query_text=query, n_results=2)
+            
+            print(f"\n--- '{query}' için Sonuçlar ---")
+            # Sonuçları listeleme
+            if results['documents']:
+                for i, doc in enumerate(results['documents'][0]):
+                    metadata = results['metadatas'][0][i]
+                    print(f"\n📄 SONUÇ {i+1}:")
+                    print(f"Özet İçeriği: {doc[:200]}...") # Sadece başını göster
+                    print(f"Tarih: {metadata.get('date')}")
+                    print(f"Orijinal Not (Kısmi): {metadata.get('raw_notes')[:100]}...")
+            else:
+                print("Sonuç bulunamadı.")
+
+        elif choice == "3":
+            print("Çıkış yapılıyor...")
+            break
         else:
-            raise ValueError("Yapay zeka çıktısı beklenen özet formatında değil.")
+            print("Geçersiz seçim.")
 
-    except ValueError as ve:
-        print(f"❌ HATA: {ve}")
-        print(f"Ham AI Yanıtı:\n{ai_response}")
-        print("--------------------------------------------------")
-    except Exception as e:
-        print(f"❌ Beklenmedik bir hata oluştu: {e}")
-        print(f"Ham AI Yanıtı:\n{ai_response}")
-        print("--------------------------------------------------")
 if __name__ == "__main__":
     main()
