@@ -1,32 +1,32 @@
 # utils/input_handler.py
-def get_manual_project_data() -> str:
+
+def get_manual_project_data() -> list: # Dönüş tipi artık list
     """
-    Kullanıcıdan çok satırlı toplantı notlarını alır.
+    Kullanıcıdan toplantı notlarını satır satır alır ve liste olarak döndürür.
     """
     print("--------------------------------------------------")
-    print("📝 Toplantı Notlarını Girin (Bitirmek için **###SON###** yazın):")
+    print("📝 Toplantı Notlarını Girin (Her satır ayrı bir madde olsun).")
+    print("Bitirmek için **###SON###** yazın:")
     print("--------------------------------------------------")
     
     lines = []
-    # Çok satırlı girişi okumaya başla
     while True:
         try:
             line = input()
         except EOFError:
-            # Ctrl+D (EOF) basılırsa döngüden çık
             break
 
         if line.strip().upper() == "###SON###":
-            print("Toplantı notları girişi tamamlandı.")
+            print("✅ Not girişi tamamlandı.")
             break
-        lines.append(line)
         
-    meeting_notes = "\n".join(lines).strip()
-    
-    if not meeting_notes:
-        print("UYARI: Toplantı notları boş, None olarak işlenecek.")
-        return None
+        # Boş satırları listeye eklemeyelim
+        if line.strip():
+            lines.append(line.strip())
+        
+    if not lines:
+        print("UYARI: Hiç not girilmedi.")
+        return []
 
-    print("--------------------------------------------------")
-    print(f"✅ Toplantı Notları Hazırlandı: {meeting_notes[:50]}..." if len(meeting_notes) > 50 else f"✅ Toplantı Notları Hazırlandı: {meeting_notes}")
-    return meeting_notes
+    print(f"✅ {len(lines)} adet madde alındı.")
+    return lines # Artık string değil, liste dönüyor

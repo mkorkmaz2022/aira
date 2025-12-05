@@ -1,54 +1,75 @@
-# ai_agents/effort_estimator_agent.py
 import os
 from ai.google_ai import GoogleAIClient
 from dotenv import load_dotenv
 
 load_dotenv()
 
-def brief_notes_agent(project_data: str) -> str:
-    """
-    Toplantı notlarını özetlemek için Google AI'dan yardım ister.
+# Persona Tanımları (UI'daki butonlara karşılık gelen roller)
+PERSONA_PROMPTS = {
+    "Yönetici": "Sen sonuç odaklı, stratejik düşünen bir Yöneticisin. Bütçe, riskler, zaman çizelgesi ve büyük resme odaklan.",
+    "Yazılımcı": "Sen teknik detaylara hakim bir Yazılımcısın (Tech Lead). Kod kalitesi, API değişiklikleri, buglar ve teknik borçlara odaklan.",
+    "Satış/Pazarlama": "Sen müşteri odaklı bir Satışçısın. Gelir fırsatları, müşteri memnuniyeti ve ürünün pazarlanabilir özelliklerine odaklan.",
+    "Tasarımcı": "Sen kullanıcı deneyimi (UX/UI) odaklı bir Tasarımcısın. Görsel tutarlılık, kullanıcı akışları ve arayüz kararlarına odaklan."
+}
 
-    Args:
-        project_data (str): Kullanıcıdan alınan ham toplantı notları.
-
-    Returns:
-        str: AI'dan gelen ham özet metni (Toplantı Özeti şablonunda).
+def generate_ai_report(notes: str, manual_actions: str, persona: str, project_name: str) -> str:
     """
-    # 1. AI İstemcisini Hazırla
+    Mobil ekrandan gelen verileri (Persona, Proje, Notlar, Aksiyonlar) alıp
+    kişiselleştirilmiş bir rapor üretir.
+    """
     try:
         client = GoogleAIClient()
     except ValueError as e:
-        return f"API_HATA: {e}. Lütfen .env dosyasını kontrol edin."
+        return f"API_HATA: {e}"
 
-    # 2. Giriş Verisini Kontrol Et
-    if not isinstance(project_data, str) or not project_data.strip():
-        return "HATA: Toplantı notları geçersiz veya boş."
+    # Persona'ya uygun rolü seç, yoksa varsayılan davran
+    role_description = PERSONA_PROMPTS.get(persona, "Sen uzman bir Asistansın.")
 
-    meeting_notes = project_data.strip()
-
-    # 3. Toplantı Notları İçin İstemi Oluştur
     prompt = f"""
-Sen bir Toplantı Özeti Uzmanısın. Görev: Aşağıdaki toplantı notlarını oku, yalnızca ana tartışma noktalarını, alınan kararları ve eylem maddelerini çıkararak kısa, net ve taranabilir bir özet üret. Her madde 1-2 cümle olsun, gereksiz detayları atla. EK KURALLAR: Risk veya engel belirtilmişse, özetin sonuna bir cümlelik uyarı ekle; eylem maddelerine sorumlu kişi ve (varsa) son tarih ekle. ÇIKTI FORMATI (KESİNLİKLE UY):
+    {role_description}
+    
+    Şu an üzerinde çalıştığımız proje: **{project_name}**
+    
+    GÖREVİN:
+    Aşağıda girilen "Ham Toplantı Notları" ve kullanıcının eklediği "Manuel Aksiyon Maddeleri"ni kullanarak,
+    benim bakış açıma ({persona}) uygun profesyonel bir rapor oluştur.
 
-**Toplantı Özeti**  
-- **Ana Tartışmalar**: (madde işaretli, 2-4 madde)  
-- **Kararlar**: (kalın yaz, 1-3 madde)  
-- **Eylem Maddeleri**: (numaralandırılmış, 1-3 madde)  
+    GİRDİLER:
+    ---
+    📝 Ham Notlar:
+    {notes}
+    
+    ⚡ Girilen Aksiyonlar:
+    {manual_actions}
+    ---
 
-**Gerekçe**: 2-3 cümle, teknik jargon kullanma, karar vericilere hitap et.
+    KURALLAR:
+    1. Benim personama ({persona}) uygun bir dil kullan. (Örn: Yazılımcıysam teknik konuş, Yöneticiysem özet geç).
+    2. Manuel girilen aksiyonları, notlardan çıkardığın diğer aksiyonlarla birleştir ve "Aksiyonlar" başlığı altında topla.
+    3. Çıktı formatını kesinlikle bozma.
 
-Toplantı Notları:{meeting_notes}
+    İSTENEN ÇIKTI FORMATI:
+    
+    **📌 {project_name} - {persona} Raporu**
+    (Persona bakış açısıyla yazılmış 2-3 cümlelik yönetici özeti.)
 
-Başla:
+    **🔹 Kritik Başlıklar**
+    * (Madde 1)
+    * (Madde 2)
+
+    **✅ Alınan Kararlar**
+    * (Karar 1)
+    * (Karar 2)
+
+    **🚀 Aksiyon Planı**
+    1. (Manuel girilen aksiyonlar buraya entegre edilecek)
+    2. (Notlardan çıkarılan yeni görevler)
+    
+    Başla:
     """
 
-    # 4. Mesajı Gönder ve Yanıtı Döndür
     try:
         response = client.send_message(prompt)
         return response
     except Exception as e:
-        return f"API_HATA: Mesaj gönderilirken hata oluştu: {e}"
-
-# Proje anahtar kelimeleri (gelecekteki genişletmeler için)
-PROJECT_INPUT_KEYS = ["toplanti_notlari"]
+        return f"API_HATA: {e}"

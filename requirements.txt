@@ -2,5 +2,4 @@ python-dotenv
 google.generativeai
 openai
 google
-pyodbc
 chromadb  <-- Bunu ekleyin
