@@ -2,3 +2,8 @@ python-dotenv
 google.generativeai
 google
 reportlab 
+pyodbc
+fastapi
+uvicorn
+
+
